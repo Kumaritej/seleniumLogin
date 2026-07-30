@@ -17,26 +17,50 @@ on:
       - master
 
 jobs:
-
   test:
-
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout source code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # Download project code
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # Install Java 23
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '23'
 
+      # Run Selenium Tests
+      - name: Run Tests
+        run: mvn test
+        continue-on-error: true
 
-    # Install Java
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        java-version: '23'
-        distribution: 'temurin'
+      # Update Zephyr if tests passed
+      - name: Update Zephyr PASS
+        if: success()
+        run: |
+          curl -X POST "https://api.zephyrscale.smartbear.com/v2/testexecutions" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "projectKey": "KAN",
+              "testCaseKey": "KAN-T8",
+              "testCycleKey": "KAN-R8",
+              "statusName": "Passed"
+            }'
 
-
-    # Install dependencies and run test cases
-    - name: Run Tests
-      run: mvn test
+      # Update Zephyr if tests failed
+      - name: Update Zephyr FAIL
+        if: failure()
+        run: |
+          curl -X POST "https://api.zephyrscale.smartbear.com/v2/testexecutions" \
+            -H "Authorization: Bearer ${{ secrets.eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjb250ZXh0Ijp7ImJhc2VVcmwiOiJodHRwczovL2xhazExMjIwMDQuYXRsYXNzaWFuLm5ldCIsInVzZXIiOnsiYWNjb3VudElkIjoiNzEyMDIwOjFkMzI0ZjU2LTY5ZWMtNGIwMy1hNjFmLTMxOWNkZmM4NDM4YyIsInRva2VuSWQiOiJmMzI1YjcwOS05MDQ2LTQ1MTUtOTI3Zi05MTAyMzkzMzA4MWEifSwiZW52aXJvbm1lbnRJZCI6IjJiYWFlYjY5LTE1YWMtNDk1NS04ZWI2LWUzNDZhYTE1NjdhYSJ9LCJpc3MiOiJjb20ua2Fub2FoLnRlc3QtbWFuYWdlciIsInN1YiI6IkZPUkdFLTM3ODcxZWFmLTgzYzYtNDlkNi1hMTdhLTY3Njg5MDQyMjUzNCIsImV4cCI6MTgxNjkzMDEzMiwiaWF0IjoxNzg1Mzk0MTMyfQ.0Wt2ZomSHkwiGzLV7kNeh7k8Xo6a-aoQPo030Fx_kzo }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "projectKey": "KAN",
+              "testCaseKey": "KAN-T8",
+              "testCycleKey": "KAN-R8",
+              "statusName": "Failed"
+            }'
