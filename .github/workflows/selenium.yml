@@ -33,9 +33,9 @@ jobs:
       - name: Update Zephyr PASS
         if: success()
         run: |
-          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T8\", \"testCycleKey\": \"KAN-R8\", \"statusName\": \"Passed\"}"
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T1\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Pass\"}"
 
       - name: Update Zephyr FAIL
         if: failure()
         run: |
-          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T8\", \"testCycleKey\": \"KAN-R8\", \"statusName\": \"Failed\"}"
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T1\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Fail\"}"
