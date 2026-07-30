@@ -41,7 +41,7 @@ jobs:
       - name: Update Zephyr PASS
         if: success()
         run: |
-          curl -i -X POST "https://api.zephyrscale.smartbear.com/v2/testexecutions" \
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2" \
             -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
