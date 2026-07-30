@@ -56,7 +56,7 @@ jobs:
         if: failure()
         run: |
           curl -X POST "https://api.zephyrscale.smartbear.com/v2/testexecutions" \
-            -H "Authorization: Bearer ${{ secrets.eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjb250ZXh0Ijp7ImJhc2VVcmwiOiJodHRwczovL2xhazExMjIwMDQuYXRsYXNzaWFuLm5ldCIsInVzZXIiOnsiYWNjb3VudElkIjoiNzEyMDIwOjFkMzI0ZjU2LTY5ZWMtNGIwMy1hNjFmLTMxOWNkZmM4NDM4YyIsInRva2VuSWQiOiJmMzI1YjcwOS05MDQ2LTQ1MTUtOTI3Zi05MTAyMzkzMzA4MWEifSwiZW52aXJvbm1lbnRJZCI6IjJiYWFlYjY5LTE1YWMtNDk1NS04ZWI2LWUzNDZhYTE1NjdhYSJ9LCJpc3MiOiJjb20ua2Fub2FoLnRlc3QtbWFuYWdlciIsInN1YiI6IkZPUkdFLTM3ODcxZWFmLTgzYzYtNDlkNi1hMTdhLTY3Njg5MDQyMjUzNCIsImV4cCI6MTgxNjkzMDEzMiwiaWF0IjoxNzg1Mzk0MTMyfQ.0Wt2ZomSHkwiGzLV7kNeh7k8Xo6a-aoQPo030Fx_kzo }}" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN  }}" \
             -H "Content-Type: application/json" \
             -d '{
               "projectKey": "KAN",
