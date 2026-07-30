@@ -56,7 +56,7 @@ jobs:
         if: failure()
         run: |
           curl -X POST "https://api.zephyrscale.smartbear.com/v2/testexecutions" \
-            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN  }}" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN}}" \
             -H "Content-Type: application/json" \
             -d '{
               "projectKey": "KAN",
