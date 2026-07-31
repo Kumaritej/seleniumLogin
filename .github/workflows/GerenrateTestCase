@@ -1,0 +1,60 @@
+name: Generate Test Case (Run Once Manually)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate test name using AI
+        env:
+          GROQ_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -s -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "llama-3.3-70b-versatile",
+              "messages": [{"role": "user", "content": "Give ONE line test case name for testing invalid login with wrong username/password. Reply with ONLY the name."}]
+            }' > raw_response_1.json
+          cat raw_response_1.json
+          jq -r '.choices[0].message.content' raw_response_1.json > testname.txt
+          cat testname.txt
+
+      - name: Generate test steps using AI
+        env:
+          GROQ_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -s -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "llama-3.3-70b-versatile",
+              "messages": [{"role": "user", "content": "Write plain text test steps (numbered, one line per step) for testing invalid login with wrong username and password on a login page. Reply with ONLY the steps, no extra text."}]
+            }' > raw_response_2.json
+          cat raw_response_2.json
+          jq -r '.choices[0].message.content' raw_response_2.json > teststeps.txt
+          cat teststeps.txt
+
+      - name: Create test case in Zephyr
+        id: create_tc
+        run: |
+          TESTNAME=$(cat testname.txt)
+          RESPONSE=$(curl -s -X POST "https://prod-api.zephyr4jiracloud.com/v2/testcases" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"projectKey\": \"KAN\", \"name\": \"$TESTNAME\", \"objective\": \"AI generated test case\"}")
+          echo "$RESPONSE"
+          TCKEY=$(echo "$RESPONSE" | jq -r '.key')
+          echo "testcasekey=$TCKEY" >> "$GITHUB_OUTPUT"
+          echo "IMPORTANT: Note down this key -> $TCKEY"
+          echo "You must put this key into automation-tests.yml as testCaseKey"
+
+      - name: Add test steps to Zephyr test case
+        run: |
+          STEPS=$(cat teststeps.txt | jq -Rs .)
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testcases/${{ steps.create_tc.outputs.testcasekey }}/testscript" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\": \"plain\", \"text\": $STEPS}"
