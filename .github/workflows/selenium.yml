@@ -5,7 +5,8 @@
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
 # documentation.
-name: Automation Tests
+name: AI Generate Tests + Zephyr Integration
+
 on:
   push:
     branches:
@@ -13,8 +14,9 @@ on:
   pull_request:
     branches:
       - master
+
 jobs:
-  test:
+  generate-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -26,6 +28,56 @@ jobs:
           distribution: temurin
           java-version: '23'
 
+      - name: Generate test name using AI
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+              "model": "claude-sonnet-4-6",
+              "max_tokens": 100,
+              "messages": [{"role": "user", "content": "Give ONE line test case name for testing invalid login with wrong username/password. Reply with ONLY the name."}]
+            }' | jq -r '.content[0].text' > testname.txt
+          cat testname.txt
+
+      - name: Generate test steps using AI
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+              "model": "claude-sonnet-4-6",
+              "max_tokens": 300,
+              "messages": [{"role": "user", "content": "Write plain text test steps (numbered, one line per step) for testing invalid login with wrong username and password on a login page. Reply with ONLY the steps, no extra text."}]
+            }' | jq -r '.content[0].text' > teststeps.txt
+          cat teststeps.txt
+
+      - name: Create test case in Zephyr
+        id: create_tc
+        run: |
+          TESTNAME=$(cat testname.txt)
+          RESPONSE=$(curl -s -X POST "https://prod-api.zephyr4jiracloud.com/v2/testcases" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"projectKey\": \"KAN\", \"name\": \"$TESTNAME\", \"objective\": \"AI generated test case\"}")
+          echo "$RESPONSE"
+          TCKEY=$(echo "$RESPONSE" | jq -r '.key')
+          echo "testcasekey=$TCKEY" >> "$GITHUB_OUTPUT"
+
+      - name: Add test steps to Zephyr test case
+        run: |
+          STEPS=$(cat teststeps.txt | jq -Rs .)
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testcases/${{ steps.create_tc.outputs.testcasekey }}/testscript" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\": \"plain\", \"text\": $STEPS}"
+
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@latest
 
@@ -36,9 +88,15 @@ jobs:
       - name: Update Zephyr PASS
         if: success()
         run: |
-          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T1\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Pass\"}"
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"${{ steps.create_tc.outputs.testcasekey }}\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Pass\"}"
 
       - name: Update Zephyr FAIL
         if: failure()
         run: |
-          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" -H "Content-Type: application/json" -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"KAN-T1\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Fail\"}"
+          curl -i -X POST "https://prod-api.zephyr4jiracloud.com/v2/testexecutions" \
+            -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"projectKey\": \"KAN\", \"testCaseKey\": \"${{ steps.create_tc.outputs.testcasekey }}\", \"testCycleKey\": \"KAN-R1\", \"statusName\": \"Fail\"}"
