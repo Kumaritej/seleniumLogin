@@ -1,0 +1,159 @@
+name: Generate Test Case (Run Once Manually)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      #####################################################
+      # Generate Test Case Name using Gemini AI
+      #####################################################
+      - name: Generate test name using Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          curl -s -X POST \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "contents": [{
+              "parts": [{
+                "text": "Give ONE line test case name for testing invalid login with wrong username/password. Reply with ONLY the name."
+              }]
+            }]
+          }' > raw_response_1.json
+
+          echo "===== Gemini Response ====="
+          cat raw_response_1.json
+
+          jq -r '.candidates[0].content.parts[0].text' raw_response_1.json > testname.txt
+
+          echo "===== Test Name ====="
+          cat testname.txt
+
+      #####################################################
+      # Generate Test Steps using Gemini AI
+      #####################################################
+      - name: Generate test steps using Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          curl -s -X POST \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "contents": [{
+              "parts": [{
+                "text": "Write plain text test steps (numbered, one line per step) for testing invalid login with wrong username and password on a login page. Reply with ONLY the steps."
+              }]
+            }]
+          }' > raw_response_2.json
+
+          echo "===== Gemini Response ====="
+          cat raw_response_2.json
+
+          jq -r '.candidates[0].content.parts[0].text' raw_response_2.json > teststeps.txt
+
+          echo "===== Test Steps ====="
+          cat teststeps.txt
+
+      #####################################################
+      # Check Existing Test Case in Zephyr
+      #####################################################
+      - name: Check if test case already exists
+        id: check_existing
+        run: |
+
+          EXISTING=$(curl -s \
+          -X GET \
+          "https://prod-api.zephyr4jiracloud.com/v2/testcases?projectKey=KAN&maxResults=100" \
+          -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}")
+
+          TESTNAME=$(cat testname.txt)
+
+          FOUND_KEY=$(echo "$EXISTING" | jq -r --arg name "$TESTNAME" '.values[] | select(.name==$name) | .key' | head -n 1)
+
+          if [ -n "$FOUND_KEY" ]; then
+
+            echo "Test Case already exists."
+
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+
+            echo "testcasekey=$FOUND_KEY" >> "$GITHUB_OUTPUT"
+
+          else
+
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          fi
+
+      #####################################################
+      # Create Test Case in Zephyr
+      #####################################################
+      - name: Create Test Case
+        id: create_tc
+        if: steps.check_existing.outputs.skip != 'true'
+        run: |
+
+          TESTNAME=$(cat testname.txt)
+
+          RESPONSE=$(curl -s \
+          -X POST \
+          "https://prod-api.zephyr4jiracloud.com/v2/testcases" \
+          -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+                \"projectKey\":\"KAN\",
+                \"name\":\"$TESTNAME\",
+                \"objective\":\"Generated using Gemini AI\"
+              }")
+
+          echo "$RESPONSE"
+
+          TESTCASE_KEY=$(echo "$RESPONSE" | jq -r '.key')
+
+          echo "testcasekey=$TESTCASE_KEY" >> "$GITHUB_OUTPUT"
+
+          echo "Created Test Case : $TESTCASE_KEY"
+
+      #####################################################
+      # Add Test Steps
+      #####################################################
+      - name: Add Test Steps
+        if: steps.check_existing.outputs.skip != 'true'
+        run: |
+
+          STEPS=$(cat teststeps.txt | jq -Rs .)
+
+          curl -i \
+          -X POST \
+          "https://prod-api.zephyr4jiracloud.com/v2/testcases/${{ steps.create_tc.outputs.testcasekey }}/testscript" \
+          -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+                \"type\":\"plain\",
+                \"text\":$STEPS
+              }"
+
+      #####################################################
+      # Final Output
+      #####################################################
+      - name: Show Final Test Case Key
+        run: |
+
+          if [ "${{ steps.check_existing.outputs.skip }}" == "true" ]; then
+
+            echo "Existing Test Case : ${{ steps.check_existing.outputs.testcasekey }}"
+
+          else
+
+            echo "New Test Case : ${{ steps.create_tc.outputs.testcasekey }}"
+
+          fi
