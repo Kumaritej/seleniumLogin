@@ -1,4 +1,4 @@
-name: Generate Test Case (Run Once Manually)
+name: Generate Test Case 
 
 on:
   workflow_dispatch:
