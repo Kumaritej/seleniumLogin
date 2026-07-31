@@ -32,30 +32,34 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.API_KEY }}
         run: |
-          curl -s https://api.anthropic.com/v1/messages \
+          curl -s -X POST https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
-              "model": "claude-sonnet-4-6",
+              "model": "claude-sonnet-5",
               "max_tokens": 100,
               "messages": [{"role": "user", "content": "Give ONE line test case name for testing invalid login with wrong username/password. Reply with ONLY the name."}]
-            }' | jq -r '.content[0].text' > testname.txt
+            }' > raw_response_1.json
+          cat raw_response_1.json
+          jq -r '.content[0].text' raw_response_1.json > testname.txt
           cat testname.txt
 
       - name: Generate test steps using AI
         env:
           ANTHROPIC_API_KEY: ${{ secrets.API_KEY }}
         run: |
-          curl -s https://api.anthropic.com/v1/messages \
+          curl -s -X POST https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
-              "model": "claude-sonnet-4-6",
+              "model": "claude-sonnet-5",
               "max_tokens": 300,
               "messages": [{"role": "user", "content": "Write plain text test steps (numbered, one line per step) for testing invalid login with wrong username and password on a login page. Reply with ONLY the steps, no extra text."}]
-            }' | jq -r '.content[0].text' > teststeps.txt
+            }' > raw_response_2.json
+          cat raw_response_2.json
+          jq -r '.content[0].text' raw_response_2.json > teststeps.txt
           cat teststeps.txt
 
       - name: Create test case in Zephyr
