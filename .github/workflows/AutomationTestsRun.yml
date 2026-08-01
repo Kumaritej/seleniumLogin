@@ -29,7 +29,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.API_KEY }}
         run: |
           curl -s -X POST \
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
           -d '{
             "contents": [{
@@ -52,7 +52,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.API_KEY }}
         run: |
           curl -s -X POST \
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
           -d '{
             "contents": [{
@@ -69,6 +69,29 @@ jobs:
 
           echo "===== Test Steps ====="
           cat teststeps.txt
+
+      - name: Generate precondition using Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -s -X POST \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$GEMINI_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "contents": [{
+              "parts": [{
+                "text": "Give ONE line precondition (what must be true before this test runs) for testing invalid login with wrong username and password on a login page. Reply with ONLY the precondition text, no numbering."
+              }]
+            }]
+          }' > raw_response_3.json
+
+          echo "===== Gemini Response ====="
+          cat raw_response_3.json
+
+          jq -r '.candidates[0].content.parts[0].text' raw_response_3.json > precondition.txt
+
+          echo "===== Precondition ====="
+          cat precondition.txt
 
       - name: Check if test case already exists
         id: check_existing
@@ -95,13 +118,14 @@ jobs:
         if: steps.check_existing.outputs.skip != 'true'
         run: |
           TESTNAME=$(cat testname.txt)
+          PRECONDITION=$(cat precondition.txt | jq -Rs .)
 
           RESPONSE=$(curl -s \
             -X POST \
             "https://prod-api.zephyr4jiracloud.com/v2/testcases" \
             -H "Authorization: Bearer ${{ secrets.ZEPHYR_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"projectKey\":\"KAN\",\"name\":\"$TESTNAME\",\"objective\":\"AI Generated using Gemini\"}")
+            -d "{\"projectKey\":\"KAN\",\"name\":\"$TESTNAME\",\"objective\":\"AI Generated using Gemini\",\"precondition\":$PRECONDITION}")
 
           echo "$RESPONSE"
 
