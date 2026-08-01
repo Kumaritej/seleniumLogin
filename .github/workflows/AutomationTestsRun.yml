@@ -13,15 +13,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
-      ####################################################
-      # Generate Test Name using Gemini
-      ####################################################
+      - name: Debug - check key length (not the key itself)
+        env:
+          GEMINI_API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          echo "Key length is: ${#GEMINI_API_KEY}"
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "ERROR: GEMINI_API_KEY is EMPTY - secret not set correctly"
+          else
+            echo "Key seems to be present (not empty)"
+          fi
+
       - name: Generate test name using Gemini
         env:
-          APIKEY: ${{ secrets.APIKEY }}
+          GEMINI_API_KEY: ${{ secrets.API_KEY }}
         run: |
           curl -s -X POST \
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$APIKEY" \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
           -d '{
             "contents": [{
@@ -39,15 +47,12 @@ jobs:
           echo "===== Test Name ====="
           cat testname.txt
 
-      ####################################################
-      # Generate Test Steps using Gemini
-      ####################################################
       - name: Generate test steps using Gemini
         env:
-          APIKEY: ${{ secrets.APIKEY }}
+          GEMINI_API_KEY: ${{ secrets.API_KEY }}
         run: |
           curl -s -X POST \
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$APIKEY" \
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
           -d '{
             "contents": [{
@@ -65,9 +70,6 @@ jobs:
           echo "===== Test Steps ====="
           cat teststeps.txt
 
-      ####################################################
-      # Check Existing Test Case
-      ####################################################
       - name: Check if test case already exists
         id: check_existing
         run: |
@@ -88,9 +90,6 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      ####################################################
-      # Create Test Case
-      ####################################################
       - name: Create test case in Zephyr
         id: create_tc
         if: steps.check_existing.outputs.skip != 'true'
@@ -110,9 +109,6 @@ jobs:
 
           echo "testcasekey=$TCKEY" >> "$GITHUB_OUTPUT"
 
-      ####################################################
-      # Add Test Steps
-      ####################################################
       - name: Add test steps to Zephyr test case
         if: steps.check_existing.outputs.skip != 'true'
         run: |
@@ -125,9 +121,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"type\":\"plain\",\"text\":$STEPS}"
 
-      ####################################################
-      # Final Output
-      ####################################################
       - name: Show final key
         run: |
           if [ "${{ steps.check_existing.outputs.skip }}" == "true" ]; then
@@ -135,3 +128,17 @@ jobs:
           else
             echo "Using NEW key: ${{ steps.create_tc.outputs.testcasekey }}"
           fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
